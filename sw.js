@@ -1,4 +1,5 @@
-const CACHE_NAME = "headachetrack-v1";
+const CACHE_NAME = "headachetrack-v2";
+
 const ASSETS = [
   "/",
   "/index.html",
