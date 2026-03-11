@@ -1,14 +1,13 @@
 # Utility Apps
 
-A collection of small Python and AI-based tools for experimentation and business utility.
+A collection of small Python, HTML and AI-enabled tools for experimentation and business utility.
 
 ## Apps
 
 ### [Headache Calculator](./headache-calculator)
 Simple Python app to calculate headache risk scores.
 
-### [Risk Score Tool](./risk-score-tool)
-Calculate vendor or operational risk scores for given inputs.
+### [Web Scraper Tools](./scraper-tool)
+Webscraper to pull listings from specific websites
 
-### [Automation Scripts](./automation-scripts)
-Scripts to automate reporting and workflow tasks.
+ 
