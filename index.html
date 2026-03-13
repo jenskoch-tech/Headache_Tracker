@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0984e3">
   <title>HeadacheTrack Pro</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon.png"> 
+  <link rel="apple-touch-icon" href="icon.png">
   <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -400,6 +400,21 @@
     .btn-export:active { transform: scale(0.98); opacity: 0.9; }
     .btn-export:disabled { opacity: 0.5; cursor: default; }
 
+    .btn-backup, .btn-restore {
+      border: none;
+      padding: 14px 8px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+    .btn-backup  { background: var(--accent); color: white; }
+    .btn-restore { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
+    .btn-backup:active,
+    .btn-restore:active { transform: scale(0.97); opacity: 0.9; }
+
     /* ── EMPTY STATE ── */
     .empty-state {
       text-align: center;
@@ -595,6 +610,16 @@
     </div>
 
     <button class="btn-export" id="pdfBtn" onclick="generatePDF()">📄 Export PDF Report</button>
+
+    <div class="card" style="margin-top:16px;">
+      <p class="section-label">iCloud Drive / Local Backup</p>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 14px 0;">Export all your data as a JSON file — save it to iCloud Drive (or anywhere) to back up or move to another device. Import to restore.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <button class="btn-backup" onclick="exportJSON()">Export JSON</button>
+        <button class="btn-restore" onclick="document.getElementById('jsonFileInput').click()">Import JSON</button>
+      </div>
+      <input type="file" id="jsonFileInput" accept=".json" style="display:none;" onchange="importJSON(event)">
+    </div>
   </div>
 
 </div><!-- /container -->
@@ -1012,6 +1037,22 @@ if ("serviceWorker" in navigator) {
 }
 
 /* ══════════════════════════════
+   REQUEST PERSISTENT STORAGE
+   Prevents browser from auto-evicting IndexedDB data.
+   On Chrome/Edge this is granted silently if the site is
+   installed as a PWA or bookmarked. On Firefox it prompts.
+   On Safari it is a no-op but does no harm.
+══════════════════════════════ */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then(granted => {
+    console.log(granted
+      ? "✅ Persistent storage granted — data is protected"
+      : "⚠️ Persistent storage not granted — data may be evicted on low storage"
+    );
+  });
+}
+
+/* ══════════════════════════════
    INIT — set default time
 ══════════════════════════════ */
 (function init() {
@@ -1020,6 +1061,50 @@ if ("serviceWorker" in navigator) {
   const mm = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('timeInput').value = `${hh}:${mm}`;
 })();
+
+/* ══════════════════════════════
+   JSON EXPORT (iCloud Drive / Backup)
+══════════════════════════════ */
+async function exportJSON() {
+  const logs = await db.logs.orderBy("date").toArray();
+  if (!logs.length) { toast("No data to export"); return; }
+  const payload = JSON.stringify({ app: "HeadacheTrackPro", version: 1, exportedAt: new Date().toISOString(), logs }, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const date = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = "headache-backup-" + date + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("Backup saved!");
+}
+
+async function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = "";
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    if (!payload.logs || !Array.isArray(payload.logs)) throw new Error("Invalid file");
+    const confirmed = confirm(
+      "Import " + payload.logs.length + " entries?\n\n" +
+      "Choose OK to MERGE with existing data, or Cancel to abort."
+    );
+    if (!confirmed) return;
+    for (const log of payload.logs) {
+      const entry = { ...log };
+      delete entry.id;
+      entry.date = new Date(entry.date);
+      await db.logs.add(entry);
+    }
+    toast("Imported " + payload.logs.length + " entries!");
+    renderHistory();
+  } catch(e) {
+    toast("Import failed: " + e.message);
+  }
+}
 </script>
 
 </body>
